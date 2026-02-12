@@ -1,0 +1,6 @@
+{
+  "name": "beerbot-kanban",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BeerBot Project Board - Kanban with real-time Supabase sync"
+}
