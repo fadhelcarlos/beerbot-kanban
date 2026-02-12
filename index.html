@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>BeerBot — Project Board</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -73,6 +73,26 @@ function useIsMobile(bp = 640) {
     return () => window.removeEventListener('resize', h);
   }, [bp]);
   return m;
+}
+
+function useBodyScrollLock() {
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    const body = document.body;
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.overflow = 'hidden';
+    return () => {
+      body.style.position = '';
+      body.style.top = '';
+      body.style.left = '';
+      body.style.right = '';
+      body.style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
 }
 
 /* ─── Icons (Lucide SVG) ─── */
@@ -236,6 +256,8 @@ function FileViewer({file,onClose}) {
   const isImg = file.mime && file.mime.startsWith('image/');
   const isPdf = file.mime === 'application/pdf';
 
+  useBodyScrollLock();
+
   useEffect(() => {
     const h = e => { if(e.key==='Escape') { e.stopImmediatePropagation(); onClose(); } };
     window.addEventListener('keydown', h, true);
@@ -243,7 +265,7 @@ function FileViewer({file,onClose}) {
   }, [onClose]);
 
   return (
-    <div style={{position:'fixed',inset:0,zIndex:2000,display:'flex',flexDirection:'column',background:'rgba(0,0,0,.92)',backdropFilter:'blur(12px)',animation:'fadeIn .2s ease'}} onClick={e=>{if(e.target===e.currentTarget) onClose();}}>
+    <div style={{position:'fixed',inset:0,zIndex:2000,display:'flex',flexDirection:'column',background:'rgba(0,0,0,.92)',backdropFilter:'blur(12px)',animation:'fadeIn .2s ease',touchAction:'none',overscrollBehavior:'contain'}} onClick={e=>{if(e.target===e.currentTarget) onClose();}}>
       {/* Top bar */}
       <div style={{display:'flex',alignItems:'center',gap:12,padding:'12px 20px',borderBottom:'1px solid rgba(255,255,255,.08)',flexShrink:0}}>
         <div style={{color:'var(--text2)',display:'flex'}}>{isImg ? I.image : I.file}</div>
@@ -356,9 +378,18 @@ function TaskDetail({task,taskMessages,onClose,onSendMessage,onDeleteMessage,onV
   const [uploading,setUploading] = useState(false);
   const scrollRef = useRef(null);
   const fileRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  useBodyScrollLock();
 
   useEffect(()=>{if(scrollRef.current) scrollRef.current.scrollTop=scrollRef.current.scrollHeight;},[taskMessages]);
   useEffect(()=>{const h=e=>{if(e.key==='Escape')onClose();};window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);},[onClose]);
+  useEffect(()=>{
+    const el=overlayRef.current;if(!el)return;
+    const block=e=>{if(e.target===el)e.preventDefault();};
+    el.addEventListener('touchmove',block,{passive:false});
+    return()=>el.removeEventListener('touchmove',block);
+  },[]);
 
   const handleSend = () => { if(!msg.trim()) return; onSendMessage(task.id,msg.trim()); setMsg(''); };
   const handleKey = e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend();} };
@@ -384,11 +415,11 @@ function TaskDetail({task,taskMessages,onClose,onSendMessage,onDeleteMessage,onV
   const tags = Array.isArray(task.tags)?task.tags:[];
 
   return (
-    <div style={{position:'fixed',inset:0,zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.6)',backdropFilter:'blur(8px)',animation:'fadeIn .2s ease'}}
+    <div ref={overlayRef} style={{position:'fixed',inset:0,zIndex:1000,display:'flex',alignItems:mobile?'stretch':'center',justifyContent:'center',background:'rgba(0,0,0,.6)',backdropFilter:'blur(8px)',animation:'fadeIn .2s ease',touchAction:'none',overscrollBehavior:'contain'}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{width:mobile?'100vw':'90vw',maxWidth:mobile?'100vw':640,height:mobile?'100vh':'auto',maxHeight:mobile?'100vh':'88vh',background:'var(--surface)',borderRadius:mobile?0:16,border:mobile?'none':'1px solid var(--border)',overflow:'hidden',display:'flex',flexDirection:'column',animation:'scaleIn .25s ease',boxShadow:'0 25px 60px rgba(0,0,0,.5)'}}>
+      <div style={{width:mobile?'100%':'90vw',maxWidth:mobile?'100%':640,height:mobile?'100%':'auto',maxHeight:mobile?'100%':'88vh',background:'var(--surface)',borderRadius:mobile?0:16,border:mobile?'none':'1px solid var(--border)',overflow:'hidden',display:'flex',flexDirection:'column',animation:'scaleIn .25s ease',boxShadow:'0 25px 60px rgba(0,0,0,.5)'}}>
         {/* Header */}
-        <div style={{padding:mobile?'16px':'20px 24px 16px',borderBottom:'1px solid var(--border)'}}>
+        <div style={{padding:mobile?'16px':'20px 24px 16px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
             <div style={{flex:1}}>
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
@@ -404,7 +435,7 @@ function TaskDetail({task,taskMessages,onClose,onSendMessage,onDeleteMessage,onV
 
         {/* Messages */}
         <div ref={scrollRef} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={handleDrop}
-          style={{flex:1,overflowY:'auto',padding:mobile?'12px 16px':'16px 24px',display:'flex',flexDirection:'column',gap:12,minHeight:120,background:dragOver?'rgba(59,130,246,.05)':'transparent',transition:'background .2s'}}>
+          style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',overscrollBehavior:'contain',padding:mobile?'12px 16px':'16px 24px',display:'flex',flexDirection:'column',gap:12,minHeight:0,background:dragOver?'rgba(59,130,246,.05)':'transparent',transition:'background .2s'}}>
           {(!taskMessages||taskMessages.length===0) ? (
             <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flex:1,gap:8,padding:'20px 0'}}>
               <div style={{color:'var(--text3)'}}>{I.chat}</div>
@@ -420,7 +451,7 @@ function TaskDetail({task,taskMessages,onClose,onSendMessage,onDeleteMessage,onV
         </div>}
 
         {/* Input */}
-        <div style={{padding:mobile?'10px 16px 14px':'12px 24px 16px',borderTop:'1px solid var(--border)',display:'flex',gap:8,alignItems:'flex-end'}}>
+        <div style={{padding:mobile?'10px 16px calc(14px + env(safe-area-inset-bottom, 0px))':'12px 24px 16px',borderTop:'1px solid var(--border)',display:'flex',gap:8,alignItems:'flex-end',flexShrink:0}}>
           <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{background:'var(--surface3)',border:'1px solid var(--border)',borderRadius:8,padding:'8px 10px',cursor:'pointer',color:'var(--text3)',display:'flex',flexShrink:0}}>
             {uploading ? I.loader : I.clip}
           </button>
